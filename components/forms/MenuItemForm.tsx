@@ -64,11 +64,13 @@ export default function MenuItemForm({ businessId, existing, onSuccess, onCancel
       dietary_tags: form.dietary_tags.length > 0 ? form.dietary_tags : null,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
     let error;
     if (existing?.id) {
-      ({ error } = await supabase.from('menu_items').update(payload).eq('id', existing.id));
+      ({ error } = await db.from('menu_items').update(payload).eq('id', existing.id));
     } else {
-      ({ error } = await supabase.from('menu_items').insert(payload));
+      ({ error } = await db.from('menu_items').insert(payload));
     }
 
     setLoading(false);

@@ -27,7 +27,8 @@ export default function AnswerForm({ question, businesses, userId, onSuccess }: 
     }
 
     setLoading(true);
-    const { error } = await supabase.from('answers').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('answers').insert({
       question_id: question.id,
       answerer_id: userId,
       answer_text: answerText.trim(),

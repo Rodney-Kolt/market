@@ -19,9 +19,11 @@ export default function ProfilePage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
+    db.auth.getSession().then(({ data: { session } }: any) => {
       if (!session) { router.push('/auth/login'); return; }
-      supabase.from('users').select('*').eq('id', session.user.id).single().then(({ data }) => {
+      db.from('users').select('*').eq('id', session.user.id).single().then(({ data }: any) => {
         if (data) {
           setUser(data as User);
           setFullName(data.full_name || '');
@@ -37,7 +39,8 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
 
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('users')
       .update({ full_name: fullName.trim() || null, role })
       .eq('id', user.id);

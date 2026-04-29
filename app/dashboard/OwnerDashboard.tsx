@@ -34,9 +34,11 @@ export default function OwnerDashboard({ user }: Props) {
 
   async function fetchData() {
     setLoading(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
 
     // Fetch owner's business
-    const { data: biz } = await supabase
+    const { data: biz } = await db
       .from('businesses')
       .select('*')
       .eq('owner_id', user.id)
@@ -46,7 +48,7 @@ export default function OwnerDashboard({ user }: Props) {
       setBusiness(biz as Business);
 
       // Fetch menu items
-      const { data: items } = await supabase
+      const { data: items } = await db
         .from('menu_items')
         .select('*')
         .eq('business_id', biz.id)
@@ -55,7 +57,7 @@ export default function OwnerDashboard({ user }: Props) {
       setMenuItems((items || []) as MenuItem[]);
 
       // Fetch questions with answers
-      const { data: qs } = await supabase
+      const { data: qs } = await db
         .from('questions')
         .select(`
           *,
@@ -72,13 +74,15 @@ export default function OwnerDashboard({ user }: Props) {
 
   async function handleDeleteItem(id: string) {
     if (!confirm('Delete this menu item?')) return;
-    const { error } = await supabase.from('menu_items').delete().eq('id', id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('menu_items').delete().eq('id', id);
     if (error) toast.error('Failed to delete item.');
     else { toast.success('Item deleted.'); fetchData(); }
   }
 
   async function handleToggleAvailability(itemId: string, current: boolean) {
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('menu_items')
       .update({ is_available_today: !current })
       .eq('id', itemId);

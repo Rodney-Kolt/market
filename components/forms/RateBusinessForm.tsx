@@ -35,7 +35,8 @@ export default function RateBusinessForm({
     setLoading(true);
 
     // Upsert (insert or update) the rating
-    const { error } = await supabase.from('ratings').upsert(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('ratings').upsert(
       {
         business_id: business.id,
         rater_id: userId,

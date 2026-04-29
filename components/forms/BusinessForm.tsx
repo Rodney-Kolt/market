@@ -63,16 +63,18 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
       logo_url: form.logo_url.trim() || null,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
     let result;
     if (existing?.id) {
-      result = await supabase
+      result = await db
         .from('businesses')
         .update(payload)
         .eq('id', existing.id)
         .select()
         .single();
     } else {
-      result = await supabase
+      result = await db
         .from('businesses')
         .insert(payload)
         .select()

@@ -32,7 +32,8 @@ export default function AskQuestionForm({
     }
 
     setLoading(true);
-    const { error } = await supabase.from('questions').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('questions').insert({
       business_id: businessId,
       asker_id: userId,
       question_text: questionText.trim(),

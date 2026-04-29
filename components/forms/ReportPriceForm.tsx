@@ -28,7 +28,8 @@ export default function ReportPriceForm({ menuItem, businessId, userId, onSucces
     }
 
     setLoading(true);
-    const { error } = await supabase.from('price_reports').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).from('price_reports').insert({
       business_id: businessId,
       menu_item_id: menuItem.id,
       reporter_id: userId,

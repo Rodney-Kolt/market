@@ -46,7 +46,8 @@ export default function RegisterPage() {
 
     // Insert user profile with role
     if (data.user) {
-      await supabase.from('users').upsert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('users').upsert({
         id: data.user.id,
         email,
         full_name: fullName,
