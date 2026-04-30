@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import type { Business } from '@/types';
@@ -9,7 +10,7 @@ import { FiSend } from 'react-icons/fi';
 interface AskQuestionFormProps {
   businesses: Business[];
   preselectedBusinessId?: string;
-  userId: string;
+  userId?: string;
   onSuccess?: () => void;
 }
 
@@ -23,9 +24,20 @@ export default function AskQuestionForm({
   const [questionText, setQuestionText] = useState('');
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Redirect to login if not authenticated
+    if (!userId) {
+      const returnTo = preselectedBusinessId
+        ? `/businesses/${preselectedBusinessId}`
+        : '/dashboard?tab=ask';
+      router.push(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+
     if (!businessId || !questionText.trim()) {
       toast.error('Please select a business and enter your question.');
       return;
@@ -78,7 +90,7 @@ export default function AskQuestionForm({
         <textarea
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
-          placeholder="e.g. Do you have gluten-free options? What time do you open on weekends?"
+          placeholder="e.g. What are your hours on weekends? Do you offer free consultations?"
           rows={3}
           maxLength={500}
           className="input resize-none"
@@ -89,7 +101,7 @@ export default function AskQuestionForm({
 
       <button type="submit" disabled={loading} className="btn-primary w-full">
         <FiSend />
-        {loading ? 'Submitting…' : 'Submit Question'}
+        {loading ? 'Submitting…' : userId ? 'Submit Question' : 'Sign in to Ask'}
       </button>
     </form>
   );

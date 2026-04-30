@@ -33,8 +33,8 @@ export function timeAgo(dateStr: string): string {
   const then = new Date(dateStr).getTime();
   const diff = Math.floor((now - then) / 1000);
 
-  if (diff < 60)   return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return 'just now';
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
   return formatDate(dateStr);
@@ -62,8 +62,8 @@ export function computeTransparencyScore(params: {
   hasDescription: boolean;
   hasContact: boolean;
   hasMenu: boolean;
-  answerRate: number;   // 0-1 fraction of questions answered
-  priceMatchRate: number; // 0-1 fraction of prices matching reports
+  answerRate: number;
+  priceMatchRate: number;
 }): number {
   let score = 0;
   if (params.hasDescription) score += 15;
@@ -101,16 +101,74 @@ export const DIETARY_OPTIONS = [
   { value: 'nut-free',     label: 'Nut-Free' },
 ];
 
-export const CUISINE_TYPES = [
-  'American', 'Italian', 'Mexican', 'Chinese', 'Japanese',
-  'Indian', 'Thai', 'Mediterranean', 'French', 'Korean',
-  'Vietnamese', 'Greek', 'Middle Eastern', 'African', 'Caribbean',
-  'Bakery', 'Cafe', 'Fast Food', 'Food Truck', 'Grocery',
+/** General business categories (replaces food-only cuisine types) */
+export const BUSINESS_CATEGORIES = [
+  'Restaurant',
+  'Cafe & Coffee',
+  'Bakery',
+  'Grocery & Market',
+  'Food Truck',
+  'Bar & Nightlife',
+  'Plumbing',
+  'Electrical',
+  'HVAC',
+  'Auto Repair',
+  'Car Wash',
+  'Salon & Beauty',
+  'Barbershop',
+  'Spa & Wellness',
+  'Gym & Fitness',
+  'Retail & Shopping',
+  'Clothing & Apparel',
+  'Electronics',
+  'Pharmacy',
+  'Medical & Health',
+  'Dental',
+  'Legal Services',
+  'Accounting & Finance',
+  'Real Estate',
+  'Consulting',
+  'Marketing & Design',
+  'IT & Tech Support',
+  'Cleaning Services',
+  'Landscaping',
+  'Construction',
+  'Photography',
+  'Event Planning',
+  'Education & Tutoring',
+  'Childcare',
+  'Pet Services',
+  'Other',
 ];
+
+/** Keep for backward compat */
+export const CUISINE_TYPES = BUSINESS_CATEGORIES;
 
 export const PRICE_RANGES = [
   { value: '$',    label: '$ – Budget' },
   { value: '$$',   label: '$$ – Moderate' },
   { value: '$$$',  label: '$$$ – Upscale' },
-  { value: '$$$$', label: '$$$$ – Fine Dining' },
+  { value: '$$$$', label: '$$$$ – Premium' },
+];
+
+/** Popular homepage search prompts */
+export const EXAMPLE_PROMPTS = [
+  'Find a plumber open now',
+  'Who sells organic coffee beans?',
+  'Best accounting firm for small business',
+  'Where can I get my phone screen repaired?',
+  'Vegan restaurants nearby',
+  'Auto repair shop with good reviews',
+];
+
+/** Homepage category quick-links */
+export const HOME_CATEGORIES = [
+  { icon: '🍽️', label: 'Restaurants',    query: 'Restaurant' },
+  { icon: '☕', label: 'Cafes',           query: 'Cafe & Coffee' },
+  { icon: '🔧', label: 'Home Services',   query: 'Plumbing' },
+  { icon: '💇', label: 'Beauty & Salon',  query: 'Salon & Beauty' },
+  { icon: '🚗', label: 'Auto Repair',     query: 'Auto Repair' },
+  { icon: '🛒', label: 'Retail',          query: 'Retail & Shopping' },
+  { icon: '💼', label: 'Professional',    query: 'Consulting' },
+  { icon: '🏥', label: 'Health',          query: 'Medical & Health' },
 ];

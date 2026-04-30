@@ -7,7 +7,7 @@ import type { MenuItem } from '@/types';
 import { FiDollarSign } from 'react-icons/fi';
 
 interface ReportPriceFormProps {
-  menuItem: MenuItem;
+  menuItem?: MenuItem | null;
   businessId: string;
   userId: string;
   onSuccess?: () => void;
@@ -15,6 +15,7 @@ interface ReportPriceFormProps {
 
 export default function ReportPriceForm({ menuItem, businessId, userId, onSuccess }: ReportPriceFormProps) {
   const [price, setPrice] = useState('');
+  const [serviceName, setServiceName] = useState(menuItem?.name || '');
   const [locationVerified, setLocationVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
@@ -26,15 +27,20 @@ export default function ReportPriceForm({ menuItem, businessId, userId, onSucces
       toast.error('Please enter a valid price.');
       return;
     }
+    if (!serviceName.trim()) {
+      toast.error('Please describe the service or product.');
+      return;
+    }
 
     setLoading(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any).from('price_reports').insert({
       business_id: businessId,
-      menu_item_id: menuItem.id,
+      menu_item_id: menuItem?.id || null,
       reporter_id: userId,
       reported_price: parsedPrice,
       location_verified: locationVerified,
+      service_name: serviceName.trim(),
     });
 
     setLoading(false);
@@ -45,6 +51,7 @@ export default function ReportPriceForm({ menuItem, businessId, userId, onSucces
     } else {
       toast.success('Price reported! Thanks for contributing.');
       setPrice('');
+      setServiceName('');
       setLocationVerified(false);
       onSuccess?.();
     }
@@ -53,10 +60,24 @@ export default function ReportPriceForm({ menuItem, businessId, userId, onSucces
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-orange-50 rounded-xl p-3">
-        <p className="text-xs text-orange-600 font-semibold">Reporting price for:</p>
-        <p className="text-sm font-semibold text-gray-800">{menuItem.name}</p>
+        <p className="text-xs text-orange-600 font-semibold">Report a price for this business</p>
+        <p className="text-xs text-gray-500 mt-0.5">Help the community know what to expect.</p>
       </div>
 
+      {/* Service / product name */}
+      <div>
+        <label className="label">Service or Product *</label>
+        <input
+          type="text"
+          value={serviceName}
+          onChange={(e) => setServiceName(e.target.value)}
+          placeholder="e.g. Oil change, Haircut, Coffee, Consultation"
+          className="input"
+          required
+        />
+      </div>
+
+      {/* Price */}
       <div>
         <label className="label">Price You Saw *</label>
         <div className="relative">

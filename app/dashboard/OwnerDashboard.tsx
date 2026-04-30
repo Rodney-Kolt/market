@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { User, Business, MenuItem, Question } from '@/types';
+import type { User, Business, MenuItem, Question, Rating } from '@/types';
 import BusinessForm from '@/components/forms/BusinessForm';
 import MenuItemForm from '@/components/forms/MenuItemForm';
 import MenuItemCard from '@/components/business/MenuItemCard';
@@ -12,21 +12,22 @@ import { ReputationBadge, TransparencyBadge } from '@/components/ui/Badge';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEdit2, FiTrash2, FiBarChart2 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import Link from 'next/link';
 
 interface Props { user: User; }
 
-type Tab = 'overview' | 'menu' | 'questions' | 'analytics';
+type Tab = 'overview' | 'items' | 'questions' | 'analytics';
 
 export default function OwnerDashboard({ user }: Props) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showBusinessForm, setShowBusinessForm] = useState(false);
-  const [showMenuForm, setShowMenuForm] = useState(false);
+  const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const supabase = createClient();
 
@@ -37,7 +38,6 @@ export default function OwnerDashboard({ user }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabase as any;
 
-    // Fetch owner's business
     const { data: biz } = await db
       .from('businesses')
       .select('*')
@@ -47,33 +47,41 @@ export default function OwnerDashboard({ user }: Props) {
     if (biz) {
       setBusiness(biz as Business);
 
-      // Fetch menu items
-      const { data: items } = await db
-        .from('menu_items')
-        .select('*')
-        .eq('business_id', biz.id)
-        .order('category')
-        .order('name');
-      setMenuItems((items || []) as MenuItem[]);
+      const [itemsRes, questionsRes, ratingsRes] = await Promise.all([
+        db
+          .from('menu_items')
+          .select('*')
+          .eq('business_id', biz.id)
+          .order('category')
+          .order('name'),
 
-      // Fetch questions with answers
-      const { data: qs } = await db
-        .from('questions')
-        .select(`
-          *,
-          asker:users(id, full_name, avatar_url),
-          answers(*, answerer:users(id, full_name))
-        `)
-        .eq('business_id', biz.id)
-        .order('created_at', { ascending: false });
-      setQuestions((qs || []) as Question[]);
+        db
+          .from('questions')
+          .select(`
+            *,
+            asker:users(id, full_name, avatar_url),
+            answers(*, answerer:users(id, full_name))
+          `)
+          .eq('business_id', biz.id)
+          .order('created_at', { ascending: false }),
+
+        db
+          .from('ratings')
+          .select('*, rater:users(id, full_name, avatar_url)')
+          .eq('business_id', biz.id)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      setMenuItems((itemsRes.data || []) as MenuItem[]);
+      setQuestions((questionsRes.data || []) as Question[]);
+      setRatings((ratingsRes.data || []) as Rating[]);
     }
 
     setLoading(false);
   }
 
   async function handleDeleteItem(id: string) {
-    if (!confirm('Delete this menu item?')) return;
+    if (!confirm('Delete this item?')) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any).from('menu_items').delete().eq('id', id);
     if (error) toast.error('Failed to delete item.');
@@ -92,9 +100,24 @@ export default function OwnerDashboard({ user }: Props) {
 
   if (loading) return <PageLoader />;
 
+  // ── Analytics computed from real data ──
+  const answeredQuestions = questions.filter((q) => q.answers && q.answers.length > 0);
+  const answerRate = questions.length > 0
+    ? Math.round((answeredQuestions.length / questions.length) * 100)
+    : 0;
+
+  // Rating distribution from real ratings
+  const ratingDist = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: ratings.filter((r) => r.score === star).length,
+    pct: ratings.length > 0
+      ? Math.round((ratings.filter((r) => r.score === star).length / ratings.length) * 100)
+      : 0,
+  }));
+
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview', label: '📊 Overview' },
-    { id: 'menu', label: `🍽️ Menu (${menuItems.length})` },
+    { id: 'overview',  label: '📊 Overview' },
+    { id: 'items',     label: `📋 Items (${menuItems.length})` },
     { id: 'questions', label: `💬 Q&A (${questions.length})` },
     { id: 'analytics', label: '📈 Analytics' },
   ];
@@ -114,12 +137,14 @@ export default function OwnerDashboard({ user }: Props) {
         )}
       </div>
 
-      {/* No business yet */}
+      {/* ── No business yet ── */}
       {!business && !showBusinessForm && (
-        <div className="card p-8 text-center">
+        <div className="card p-10 text-center">
           <div className="text-5xl mb-4">🏪</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">List Your Business</h2>
-          <p className="text-gray-500 mb-6">Create your business profile to start receiving reviews and questions.</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Create Your First Business</h2>
+          <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+            List your business to start receiving reviews, questions, and build your reputation.
+          </p>
           <button onClick={() => setShowBusinessForm(true)} className="btn-primary">
             <FiPlus /> Create Business Profile
           </button>
@@ -137,7 +162,7 @@ export default function OwnerDashboard({ user }: Props) {
         </div>
       )}
 
-      {/* Dashboard with business */}
+      {/* ── Dashboard with business ── */}
       {business && (
         <>
           {/* Tabs */}
@@ -162,12 +187,11 @@ export default function OwnerDashboard({ user }: Props) {
           {/* ── Overview Tab ── */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Stats cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: 'Rating', value: business.rating_avg.toFixed(1), sub: `${business.rating_count} reviews`, icon: '⭐' },
-                  { label: 'Menu Items', value: menuItems.length, sub: `${menuItems.filter(m => m.is_available_today).length} available today`, icon: '🍽️' },
-                  { label: 'Questions', value: questions.length, sub: `${questions.filter(q => q.answers && q.answers.length > 0).length} answered`, icon: '💬' },
+                  { label: 'Items Listed', value: menuItems.length, sub: `${menuItems.filter(m => m.is_available_today).length} available today`, icon: '📋' },
+                  { label: 'Questions', value: questions.length, sub: `${answeredQuestions.length} answered (${answerRate}%)`, icon: '💬' },
                   { label: 'Transparency', value: business.transparency_score, sub: 'out of 100', icon: '🔍' },
                 ].map((stat) => (
                   <div key={stat.label} className="card p-4 text-center">
@@ -179,7 +203,7 @@ export default function OwnerDashboard({ user }: Props) {
                 ))}
               </div>
 
-              {/* Business info card */}
+              {/* Business info */}
               <div className="card p-6">
                 <div className="flex items-start justify-between mb-4">
                   <h2 className="font-bold text-gray-900">Business Profile</h2>
@@ -200,7 +224,7 @@ export default function OwnerDashboard({ user }: Props) {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div><span className="text-gray-500">Name:</span> <span className="font-medium">{business.name}</span></div>
-                    <div><span className="text-gray-500">Cuisine:</span> <span className="font-medium">{business.cuisine_type || '—'}</span></div>
+                    <div><span className="text-gray-500">Category:</span> <span className="font-medium">{business.category || business.cuisine_type || '—'}</span></div>
                     <div><span className="text-gray-500">Price Range:</span> <span className="font-medium">{business.price_range || '—'}</span></div>
                     <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{business.contact_phone || '—'}</span></div>
                     <div className="sm:col-span-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{business.address || '—'}</span></div>
@@ -214,36 +238,35 @@ export default function OwnerDashboard({ user }: Props) {
             </div>
           )}
 
-          {/* ── Menu Tab ── */}
-          {activeTab === 'menu' && (
+          {/* ── Items Tab ── */}
+          {activeTab === 'items' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-bold text-gray-900">Menu Items</h2>
-                <button onClick={() => { setEditingItem(null); setShowMenuForm(true); }} className="btn-primary text-sm">
+                <h2 className="font-bold text-gray-900">Products &amp; Services</h2>
+                <button onClick={() => { setEditingItem(null); setShowItemForm(true); }} className="btn-primary text-sm">
                   <FiPlus /> Add Item
                 </button>
               </div>
 
-              {/* Add/Edit form */}
-              {showMenuForm && (
+              {showItemForm && (
                 <div className="card p-5">
-                  <h3 className="font-semibold text-gray-900 mb-4">{editingItem ? 'Edit Item' : 'Add Menu Item'}</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{editingItem ? 'Edit Item' : 'Add Item'}</h3>
                   <MenuItemForm
                     businessId={business.id}
                     existing={editingItem || undefined}
-                    onSuccess={() => { setShowMenuForm(false); setEditingItem(null); fetchData(); }}
-                    onCancel={() => { setShowMenuForm(false); setEditingItem(null); }}
+                    onSuccess={() => { setShowItemForm(false); setEditingItem(null); fetchData(); }}
+                    onCancel={() => { setShowItemForm(false); setEditingItem(null); }}
                   />
                 </div>
               )}
 
               {menuItems.length === 0 ? (
                 <EmptyState
-                  icon="🍽️"
-                  title="No menu items yet"
-                  description="Add your first menu item to let customers know what you offer."
+                  icon="📋"
+                  title="No items listed yet"
+                  description="Add your products or services so customers know what you offer."
                   actionLabel="Add First Item"
-                  onAction={() => setShowMenuForm(true)}
+                  onAction={() => setShowItemForm(true)}
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -256,7 +279,7 @@ export default function OwnerDashboard({ user }: Props) {
                       />
                       <div className="absolute top-3 right-3 flex gap-1">
                         <button
-                          onClick={() => { setEditingItem(item); setShowMenuForm(true); }}
+                          onClick={() => { setEditingItem(item); setShowItemForm(true); }}
                           className="p-1.5 bg-white rounded-lg shadow-sm text-gray-500 hover:text-orange-500 transition-colors"
                         >
                           <FiEdit2 className="text-sm" />
@@ -292,46 +315,56 @@ export default function OwnerDashboard({ user }: Props) {
           {/* ── Analytics Tab ── */}
           {activeTab === 'analytics' && (
             <div className="space-y-6">
-              <h2 className="font-bold text-gray-900">Rating Analytics</h2>
+              <h2 className="font-bold text-gray-900">Analytics</h2>
 
-              {/* Rating distribution */}
+              {/* Rating distribution — real data */}
               <div className="card p-6">
                 <h3 className="font-semibold text-gray-800 mb-4">Rating Overview</h3>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
+                <div className="flex items-start gap-6">
+                  <div className="text-center flex-shrink-0">
                     <div className="text-5xl font-extrabold text-gray-900">{business.rating_avg.toFixed(1)}</div>
                     <StarRating score={business.rating_avg} size="md" />
                     <p className="text-sm text-gray-500 mt-1">{business.rating_count} reviews</p>
                   </div>
                   <div className="flex-1">
-                    {[5, 4, 3, 2, 1].map((star) => {
-                      // We'd need actual data for this — using placeholder
-                      const pct = star === Math.round(business.rating_avg) ? 60 : Math.max(5, (star / 5) * 30);
-                      return (
-                        <div key={star} className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs text-gray-500 w-4">{star}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-2">
-                            <div
-                              className="bg-amber-400 h-2 rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
+                    {ratingDist.map(({ star, count, pct }) => (
+                      <div key={star} className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs text-gray-500 w-4">{star}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-2">
+                          <div
+                            className="bg-amber-400 h-2 rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
-                      );
-                    })}
+                        <span className="text-xs text-gray-400 w-6 text-right">{count}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Transparency breakdown */}
+              {/* Transparency breakdown — real data */}
               <div className="card p-6">
                 <h3 className="font-semibold text-gray-800 mb-4">Transparency Score Breakdown</h3>
                 <div className="space-y-3">
                   {[
-                    { label: 'Profile completeness', score: business.description && business.address && business.contact_phone ? 100 : 50, max: 25 },
-                    { label: 'Question response rate', score: questions.length > 0 ? Math.round((questions.filter(q => q.answers && q.answers.length > 0).length / questions.length) * 100) : 0, max: 40 },
-                    { label: 'Menu items listed', score: menuItems.length > 0 ? 100 : 0, max: 15 },
-                    { label: 'Price accuracy', score: 70, max: 20 },
+                    {
+                      label: 'Profile completeness',
+                      score: [business.description, business.address, business.contact_phone, business.contact_email]
+                        .filter(Boolean).length * 25,
+                    },
+                    {
+                      label: 'Question response rate',
+                      score: answerRate,
+                    },
+                    {
+                      label: 'Items / services listed',
+                      score: menuItems.length > 0 ? Math.min(100, menuItems.length * 10) : 0,
+                    },
+                    {
+                      label: 'Community engagement',
+                      score: ratings.length > 0 ? Math.min(100, ratings.length * 5) : 0,
+                    },
                   ].map((item) => (
                     <div key={item.label}>
                       <div className="flex justify-between text-sm mb-1">

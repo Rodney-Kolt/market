@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Question, Rating, Business } from '@/types';
 import QuestionCard from '@/components/business/QuestionCard';
@@ -9,11 +10,13 @@ import AskQuestionForm from '@/components/forms/AskQuestionForm';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Link from 'next/link';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 interface Props { user: User; }
 
 type Tab = 'questions' | 'ratings' | 'ask';
+
+const PAGE_SIZE = 5;
 
 export default function CustomerDashboard({ user }: Props) {
   const [myQuestions, setMyQuestions] = useState<Question[]>([]);
@@ -21,15 +24,26 @@ export default function CustomerDashboard({ user }: Props) {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('questions');
+  const [qPage, setQPage] = useState(0);
+  const [rPage, setRPage] = useState(0);
   const supabase = createClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Support ?tab=ask from FloatingAskButton
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'ask') setActiveTab('ask');
+  }, [searchParams]);
 
   useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
     setLoading(true);
+    const db = supabase as any;
 
     const [questionsRes, ratingsRes, businessesRes] = await Promise.all([
-      supabase
+      db
         .from('questions')
         .select(`
           *,
@@ -40,13 +54,13 @@ export default function CustomerDashboard({ user }: Props) {
         .eq('asker_id', user.id)
         .order('created_at', { ascending: false }),
 
-      supabase
+      db
         .from('ratings')
         .select('*, rater:users(id, full_name), business:businesses(id, name)')
         .eq('rater_id', user.id)
         .order('created_at', { ascending: false }),
 
-      supabase
+      db
         .from('businesses')
         .select('id, name')
         .eq('is_active', true)
@@ -63,10 +77,18 @@ export default function CustomerDashboard({ user }: Props) {
 
   const answeredCount = myQuestions.filter((q) => q.answers && q.answers.length > 0).length;
 
+  // Paginated slices
+  const qTotal = myQuestions.length;
+  const rTotal = myRatings.length;
+  const qPages = Math.ceil(qTotal / PAGE_SIZE);
+  const rPages = Math.ceil(rTotal / PAGE_SIZE);
+  const pagedQuestions = myQuestions.slice(qPage * PAGE_SIZE, (qPage + 1) * PAGE_SIZE);
+  const pagedRatings = myRatings.slice(rPage * PAGE_SIZE, (rPage + 1) * PAGE_SIZE);
+
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'questions', label: `💬 My Questions (${myQuestions.length})` },
-    { id: 'ratings', label: `⭐ My Reviews (${myRatings.length})` },
-    { id: 'ask', label: '➕ Ask a Question' },
+    { id: 'questions', label: `💬 My Questions (${qTotal})` },
+    { id: 'ratings',   label: `⭐ My Reviews (${rTotal})` },
+    { id: 'ask',       label: '➕ Ask a Question' },
   ];
 
   return (
@@ -80,9 +102,9 @@ export default function CustomerDashboard({ user }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
-          { label: 'Questions Asked', value: myQuestions.length, icon: '💬' },
+          { label: 'Questions Asked', value: qTotal, icon: '💬' },
           { label: 'Answers Received', value: answeredCount, icon: '✅' },
-          { label: 'Reviews Written', value: myRatings.length, icon: '⭐' },
+          { label: 'Reviews Written', value: rTotal, icon: '⭐' },
         ].map((stat) => (
           <div key={stat.label} className="card p-4 text-center">
             <div className="text-2xl mb-1">{stat.icon}</div>
@@ -120,29 +142,33 @@ export default function CustomerDashboard({ user }: Props) {
               <FiPlus /> Ask New
             </button>
           </div>
-          {myQuestions.length === 0 ? (
+          {qTotal === 0 ? (
             <EmptyState
               icon="💬"
               title="No questions yet"
-              description="Ask a question about any food business to get community answers."
+              description="Ask a question about any business to get community answers."
               actionLabel="Ask a Question"
               onAction={() => setActiveTab('ask')}
             />
           ) : (
-            myQuestions.map((q) => (
-              <div key={q.id}>
-                {/* Show which business */}
-                {(q as any).business && (
-                  <Link
-                    href={`/businesses/${(q as any).business.id}`}
-                    className="text-xs text-orange-500 hover:text-orange-600 font-medium mb-1 block"
-                  >
-                    🏪 {(q as any).business.name}
-                  </Link>
-                )}
-                <QuestionCard question={q} showAnswerLink />
-              </div>
-            ))
+            <>
+              {pagedQuestions.map((q) => (
+                <div key={q.id}>
+                  {q.business && (
+                    <Link
+                      href={`/businesses/${q.business.id}`}
+                      className="text-xs text-orange-500 hover:text-orange-600 font-medium mb-1 block"
+                    >
+                      🏪 {q.business.name}
+                    </Link>
+                  )}
+                  <QuestionCard question={q} showAnswerLink />
+                </div>
+              ))}
+              {qPages > 1 && (
+                <Pagination page={qPage} total={qPages} onChange={setQPage} />
+              )}
+            </>
           )}
         </div>
       )}
@@ -151,7 +177,7 @@ export default function CustomerDashboard({ user }: Props) {
       {activeTab === 'ratings' && (
         <div className="space-y-4">
           <h2 className="font-bold text-gray-900">My Reviews</h2>
-          {myRatings.length === 0 ? (
+          {rTotal === 0 ? (
             <EmptyState
               icon="⭐"
               title="No reviews yet"
@@ -160,19 +186,24 @@ export default function CustomerDashboard({ user }: Props) {
               actionHref="/businesses"
             />
           ) : (
-            myRatings.map((r) => (
-              <div key={r.id}>
-                {(r as any).business && (
-                  <Link
-                    href={`/businesses/${(r as any).business.id}`}
-                    className="text-xs text-orange-500 hover:text-orange-600 font-medium mb-1 block"
-                  >
-                    🏪 {(r as any).business.name}
-                  </Link>
-                )}
-                <RatingCard rating={r} />
-              </div>
-            ))
+            <>
+              {pagedRatings.map((r) => (
+                <div key={r.id}>
+                  {r.business && (
+                    <Link
+                      href={`/businesses/${r.business.id}`}
+                      className="text-xs text-orange-500 hover:text-orange-600 font-medium mb-1 block"
+                    >
+                      🏪 {r.business.name}
+                    </Link>
+                  )}
+                  <RatingCard rating={r} />
+                </div>
+              ))}
+              {rPages > 1 && (
+                <Pagination page={rPage} total={rPages} onChange={setRPage} />
+              )}
+            </>
           )}
         </div>
       )}
@@ -184,10 +215,42 @@ export default function CustomerDashboard({ user }: Props) {
           <AskQuestionForm
             businesses={businesses}
             userId={user.id}
-            onSuccess={() => { fetchData(); setActiveTab('questions'); }}
+            onSuccess={() => { fetchData(); setActiveTab('questions'); setQPage(0); }}
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  total,
+  onChange,
+}: {
+  page: number;
+  total: number;
+  onChange: (p: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3 pt-2">
+      <button
+        onClick={() => onChange(page - 1)}
+        disabled={page === 0}
+        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        <FiChevronLeft />
+      </button>
+      <span className="text-sm text-gray-500">
+        Page {page + 1} of {total}
+      </span>
+      <button
+        onClick={() => onChange(page + 1)}
+        disabled={page >= total - 1}
+        className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        <FiChevronRight />
+      </button>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import AskQuestionForm from '@/components/forms/AskQuestionForm';
 import RateBusinessForm from '@/components/forms/RateBusinessForm';
 import ReportPriceForm from '@/components/forms/ReportPriceForm';
 import { FiMapPin, FiPhone, FiMail, FiMessageCircle, FiStar, FiPlus } from 'react-icons/fi';
-import { MdRestaurant } from 'react-icons/md';
+import { MdStorefront } from 'react-icons/md';
 
 interface Props {
   business: Business;
@@ -78,9 +78,9 @@ export default function BusinessProfileClient({
   const isOwner = currentUser?.id === business.owner_id;
 
   const tabs = [
-    { id: 'menu' as const, label: `Menu (${menuItems.length})` },
-    { id: 'qa' as const, label: `Q&A (${questions.length})` },
-    { id: 'reviews' as const, label: `Reviews (${ratings.length})` },
+    { id: 'menu' as const, label: `📋 Items (${menuItems.length})` },
+    { id: 'qa' as const, label: `💬 Q&A (${questions.length})` },
+    { id: 'reviews' as const, label: `⭐ Reviews (${ratings.length})` },
   ];
 
   return (
@@ -93,7 +93,7 @@ export default function BusinessProfileClient({
           {business.logo_url ? (
             <Image src={business.logo_url} alt={business.name} fill className="object-cover" />
           ) : (
-            <MdRestaurant className="text-8xl text-orange-200" />
+            <MdStorefront className="text-8xl text-orange-200" />
           )}
         </div>
 
@@ -106,8 +106,8 @@ export default function BusinessProfileClient({
               </div>
 
               <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                {business.cuisine_type && (
-                  <span className="text-sm text-gray-500">{business.cuisine_type}</span>
+                {(business.category || business.cuisine_type) && (
+                  <span className="text-sm text-gray-500">{business.category || business.cuisine_type}</span>
                 )}
                 {business.price_range && (
                   <span className="text-sm font-semibold text-green-600">{business.price_range}</span>
@@ -182,12 +182,12 @@ export default function BusinessProfileClient({
         </div>
       </div>
 
-      {/* ── Today's Menu Snapshot ── */}
+      {/* ── Available Today Snapshot ── */}
       {availableToday.length > 0 && (
         <div className="card p-5 mb-6 border-l-4 border-green-400">
           <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-            📅 Today&apos;s Menu Snapshot
-            <span className="badge badge-green">{availableToday.length} items available</span>
+            📅 Available Today
+            <span className="badge badge-green">{availableToday.length} items</span>
           </h2>
           <div className="flex flex-wrap gap-2">
             {availableToday.map((item) => (
@@ -243,13 +243,13 @@ export default function BusinessProfileClient({
         </div>
       </div>
 
-      {/* ── Menu Tab ── */}
+      {/* ── Items Tab ── */}
       {activeTab === 'menu' && (
         <div className="space-y-6">
           {Object.keys(menuByCategory).length === 0 ? (
             <div className="text-center py-12 text-gray-400">
-              <MdRestaurant className="text-5xl mx-auto mb-3 text-gray-200" />
-              <p>No menu items listed yet.</p>
+              <MdStorefront className="text-5xl mx-auto mb-3 text-gray-200" />
+              <p>No items or services listed yet.</p>
             </div>
           ) : (
             Object.entries(menuByCategory).map(([category, items]) => (
@@ -278,7 +278,8 @@ export default function BusinessProfileClient({
       {/* ── Q&A Tab ── */}
       {activeTab === 'qa' && (
         <div className="space-y-4">
-          {currentUser && !isOwner && (
+          {/* Show ask button for all users — AskQuestionForm handles redirect if not logged in */}
+          {!isOwner && (
             <button
               onClick={() => setActiveModal('ask')}
               className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-orange-200 rounded-2xl text-orange-500 hover:bg-orange-50 transition-colors font-medium"
@@ -334,11 +335,11 @@ export default function BusinessProfileClient({
               <button onClick={() => setActiveModal(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
             <div className="p-5">
-              {activeModal === 'ask' && currentUser && (
+              {activeModal === 'ask' && (
                 <AskQuestionForm
                   businesses={[business]}
                   preselectedBusinessId={business.id}
-                  userId={currentUser.id}
+                  userId={currentUser?.id}
                   onSuccess={() => { setActiveModal(null); window.location.reload(); }}
                 />
               )}

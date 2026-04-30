@@ -3,31 +3,37 @@ import Image from 'next/image';
 import type { Business } from '@/types';
 import StarRating from '@/components/ui/StarRating';
 import { ReputationBadge, TransparencyBadge } from '@/components/ui/Badge';
-import { FiMapPin, FiPhone } from 'react-icons/fi';
-import { MdRestaurant } from 'react-icons/md';
+import { FiMapPin } from 'react-icons/fi';
+import { MdStorefront } from 'react-icons/md';
 
 interface BusinessCardProps {
   business: Business;
   view?: 'grid' | 'list';
 }
 
+function getCategory(business: Business): string | null {
+  return business.category || business.cuisine_type || null;
+}
+
 export default function BusinessCard({ business, view = 'grid' }: BusinessCardProps) {
+  const category = getCategory(business);
+
   if (view === 'list') {
     return (
       <Link href={`/businesses/${business.id}`} className="block">
         <div className="card-hover p-4 flex gap-4">
           {/* Logo */}
-          <div className="w-20 h-20 rounded-xl overflow-hidden bg-orange-50 flex-shrink-0 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-xl overflow-hidden bg-orange-50 flex-shrink-0 flex items-center justify-center">
             {business.logo_url ? (
               <Image
                 src={business.logo_url}
                 alt={business.name}
-                width={80}
-                height={80}
+                width={64}
+                height={64}
                 className="object-cover w-full h-full"
               />
             ) : (
-              <MdRestaurant className="text-3xl text-orange-300" />
+              <MdStorefront className="text-2xl text-orange-300" />
             )}
           </div>
 
@@ -37,8 +43,8 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
               <div>
                 <h3 className="font-semibold text-gray-900 truncate">{business.name}</h3>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  {business.cuisine_type && (
-                    <span className="text-xs text-gray-500">{business.cuisine_type}</span>
+                  {category && (
+                    <span className="text-xs text-gray-500">{category}</span>
                   )}
                   {business.price_range && (
                     <span className="text-xs font-medium text-green-600">{business.price_range}</span>
@@ -61,9 +67,6 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <TransparencyBadge score={business.transparency_score} size="sm" />
-              {business.dietary_options?.slice(0, 2).map((opt) => (
-                <span key={opt} className="badge badge-gray capitalize">{opt}</span>
-              ))}
             </div>
           </div>
         </div>
@@ -76,7 +79,7 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
     <Link href={`/businesses/${business.id}`} className="block">
       <div className="card-hover h-full flex flex-col">
         {/* Cover / Logo area */}
-        <div className="h-40 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center relative overflow-hidden">
+        <div className="h-36 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center relative overflow-hidden">
           {business.logo_url ? (
             <Image
               src={business.logo_url}
@@ -85,9 +88,8 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
               className="object-cover"
             />
           ) : (
-            <MdRestaurant className="text-6xl text-orange-200" />
+            <MdStorefront className="text-5xl text-orange-200" />
           )}
-          {/* Price range badge */}
           {business.price_range && (
             <span className="absolute top-3 right-3 badge badge-green font-bold">
               {business.price_range}
@@ -102,8 +104,8 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
             <ReputationBadge ratingCount={business.rating_count} size="sm" />
           </div>
 
-          {business.cuisine_type && (
-            <p className="text-xs text-gray-500 mb-2">{business.cuisine_type}</p>
+          {category && (
+            <p className="text-xs text-gray-500 mb-2">{category}</p>
           )}
 
           <StarRating score={business.rating_avg} size="sm" showScore showCount={business.rating_count} />
@@ -114,13 +116,8 @@ export default function BusinessCard({ business, view = 'grid' }: BusinessCardPr
             </p>
           )}
 
-          <div className="mt-auto pt-3 flex items-center justify-between">
+          <div className="mt-auto pt-3">
             <TransparencyBadge score={business.transparency_score} size="sm" />
-            {business.dietary_options && business.dietary_options.length > 0 && (
-              <span className="text-xs text-gray-400">
-                {business.dietary_options.slice(0, 2).join(' · ')}
-              </span>
-            )}
           </div>
         </div>
       </div>

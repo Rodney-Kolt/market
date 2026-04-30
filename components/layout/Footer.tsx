@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MdRestaurant } from 'react-icons/md';
+import { MdStorefront } from 'react-icons/md';
 import { FiGithub, FiTwitter } from 'react-icons/fi';
 
 export default function Footer() {
@@ -11,11 +11,11 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-2">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl text-orange-500 mb-3">
-              <MdRestaurant className="text-2xl" />
+              <MdStorefront className="text-2xl" />
               <span>Market<span className="text-gray-900">Assistant</span></span>
             </Link>
             <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
-              Your food marketplace knowledge platform. Discover restaurants, cafes, food trucks, and more with real community insights.
+              Your local business knowledge platform. Discover businesses of all kinds with real community insights, honest reviews, and transparent pricing.
             </p>
           </div>
 
@@ -26,7 +26,7 @@ export default function Footer() {
               {[
                 { href: '/businesses', label: 'Browse Businesses' },
                 { href: '/businesses?sort_by=rating', label: 'Top Rated' },
-                { href: '/auth/register', label: 'Join as Owner' },
+                { href: '/auth/register', label: 'List Your Business' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-sm text-gray-500 hover:text-orange-500 transition-colors">
@@ -45,6 +45,7 @@ export default function Footer() {
                 { href: '/auth/login', label: 'Sign In' },
                 { href: '/auth/register', label: 'Create Account' },
                 { href: '/dashboard', label: 'Dashboard' },
+                { href: '/profile', label: 'My Profile' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-sm text-gray-500 hover:text-orange-500 transition-colors">
@@ -58,7 +59,7 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-gray-400">
-            © {new Date().getFullYear()} Market Assistant. Built with Next.js & Supabase.
+            © {new Date().getFullYear()} Market Assistant. Built with Next.js &amp; Supabase.
           </p>
           <div className="flex items-center gap-4">
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">

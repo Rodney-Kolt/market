@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: 'Browse Businesses' };
 interface PageProps {
   searchParams: {
     query?: string;
+    category?: string;
     cuisine_type?: string;
     price_range?: string;
     dietary_option?: string;
@@ -23,21 +24,27 @@ interface PageProps {
 
 async function getBusinesses(filters: BusinessFilters): Promise<Business[]> {
   const supabase = createServerSupabaseClient();
+  const db = supabase as any;
 
-  let query = supabase
+  let query = db
     .from('businesses')
     .select('*')
     .eq('is_active', true);
 
   if (filters.query) {
     query = query.or(
-      `name.ilike.%${filters.query}%,description.ilike.%${filters.query}%,cuisine_type.ilike.%${filters.query}%`
+      `name.ilike.%${filters.query}%,description.ilike.%${filters.query}%,category.ilike.%${filters.query}%,cuisine_type.ilike.%${filters.query}%`
     );
   }
-  if (filters.cuisine_type) query = query.eq('cuisine_type', filters.cuisine_type);
-  if (filters.price_range)  query = query.eq('price_range', filters.price_range);
+  // Support both category and cuisine_type for backward compat
+  if (filters.category) {
+    query = query.or(`category.ilike.%${filters.category}%,cuisine_type.ilike.%${filters.category}%`);
+  } else if (filters.cuisine_type) {
+    query = query.or(`category.ilike.%${filters.cuisine_type}%,cuisine_type.ilike.%${filters.cuisine_type}%`);
+  }
+  if (filters.price_range)    query = query.eq('price_range', filters.price_range);
   if (filters.dietary_option) query = query.contains('dietary_options', [filters.dietary_option]);
-  if (filters.min_rating)   query = query.gte('rating_avg', filters.min_rating);
+  if (filters.min_rating)     query = query.gte('rating_avg', filters.min_rating);
 
   switch (filters.sort_by) {
     case 'newest': query = query.order('created_at', { ascending: false }); break;
@@ -52,6 +59,7 @@ async function getBusinesses(filters: BusinessFilters): Promise<Business[]> {
 export default async function BusinessesPage({ searchParams }: PageProps) {
   const filters: BusinessFilters = {
     query:          searchParams.query,
+    category:       searchParams.category,
     cuisine_type:   searchParams.cuisine_type,
     price_range:    searchParams.price_range as BusinessFilters['price_range'],
     dietary_option: searchParams.dietary_option,
@@ -62,16 +70,17 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
   const businesses = await getBusinesses(filters);
   const view = (searchParams.view as 'grid' | 'list') || 'grid';
   const hasFilters = Object.values(filters).some(Boolean);
+  const activeQuery = filters.query || filters.category || filters.cuisine_type;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Food Businesses</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Businesses</h1>
         <p className="text-gray-500">
           {businesses.length} {businesses.length === 1 ? 'business' : 'businesses'} found
-          {filters.query && (
-            <span> for &ldquo;<strong>{filters.query}</strong>&rdquo;</span>
+          {activeQuery && (
+            <span> for &ldquo;<strong>{activeQuery}</strong>&rdquo;</span>
           )}
         </p>
       </div>
@@ -125,8 +134,6 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
     </div>
   );
 }
-
-// ── ViewToggle (server-safe — uses plain <a> tags) ──────────
 
 interface ViewToggleProps {
   view: string;

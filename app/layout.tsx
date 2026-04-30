@@ -3,18 +3,19 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import FloatingAskButton from '@/components/ui/FloatingAskButton';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Market Assistant – Your Food Marketplace Guide',
+    default: 'Market Assistant – Find Any Business, Ask Anything',
     template: '%s | Market Assistant',
   },
   description:
-    'Discover restaurants, cafes, food trucks, and more. Get real-time menus, crowdsourced prices, and community Q&A for food businesses near you.',
-  keywords: ['food', 'restaurant', 'marketplace', 'menu', 'reviews', 'food truck', 'cafe'],
+    'Discover local businesses of all kinds. Get real answers from the community, crowdsourced prices, and honest reviews.',
+  keywords: ['business', 'local', 'marketplace', 'reviews', 'community', 'Q&A', 'find business'],
   openGraph: {
     title: 'Market Assistant',
-    description: 'Your food marketplace knowledge platform',
+    description: 'Your local business knowledge platform',
     type: 'website',
   },
 };
@@ -27,7 +28,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
-        {/* Toast notifications */}
         <Toaster
           position="top-right"
           toastOptions={{
@@ -49,6 +49,9 @@ export default function RootLayout({
         </main>
 
         <Footer />
+
+        {/* Persistent floating ask button */}
+        <FloatingAskButton />
       </body>
     </html>
   );

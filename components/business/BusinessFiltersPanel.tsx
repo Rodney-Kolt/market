@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { BusinessFilters } from '@/types';
-import { CUISINE_TYPES, PRICE_RANGES, DIETARY_OPTIONS } from '@/lib/utils';
+import { BUSINESS_CATEGORIES, PRICE_RANGES, DIETARY_OPTIONS } from '@/lib/utils';
 import { FiFilter, FiX } from 'react-icons/fi';
 
 interface BusinessFiltersPanelProps {
@@ -20,7 +20,6 @@ export default function BusinessFiltersPanel({ currentFilters }: BusinessFilters
     } else {
       params.delete(key);
     }
-    // Reset to page 1 on filter change
     params.delete('page');
     router.push(`/businesses?${params.toString()}`);
   }
@@ -30,11 +29,14 @@ export default function BusinessFiltersPanel({ currentFilters }: BusinessFilters
   }
 
   const hasActiveFilters = !!(
+    currentFilters.category ||
     currentFilters.cuisine_type ||
     currentFilters.price_range ||
     currentFilters.dietary_option ||
     currentFilters.min_rating
   );
+
+  const activeCategory = currentFilters.category || currentFilters.cuisine_type;
 
   return (
     <div className="card p-5 space-y-6">
@@ -49,16 +51,16 @@ export default function BusinessFiltersPanel({ currentFilters }: BusinessFilters
         )}
       </div>
 
-      {/* Cuisine */}
+      {/* Category */}
       <div>
-        <label className="label">Cuisine Type</label>
+        <label className="label">Category</label>
         <select
-          value={currentFilters.cuisine_type || ''}
-          onChange={(e) => updateFilter('cuisine_type', e.target.value || undefined)}
+          value={activeCategory || ''}
+          onChange={(e) => updateFilter('category', e.target.value || undefined)}
           className="input text-sm"
         >
-          <option value="">All cuisines</option>
-          {CUISINE_TYPES.map((c) => <option key={c} value={c}>{c}</option>)}
+          <option value="">All categories</option>
+          {BUSINESS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 

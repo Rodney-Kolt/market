@@ -13,7 +13,7 @@ interface SearchBarProps {
 export default function SearchBar({
   defaultValue = '',
   className = '',
-  placeholder = 'Search restaurants, dishes, cuisines…',
+  placeholder = 'Search businesses, services, categories…',
 }: SearchBarProps) {
   const [query, setQuery] = useState(defaultValue);
   const router = useRouter();
@@ -34,12 +34,12 @@ export default function SearchBar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-11 pr-4 py-3.5 rounded-xl border-0 bg-white text-gray-900 placeholder-gray-400 shadow-md focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+          className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-sm"
         />
       </div>
       <button
         type="submit"
-        className="px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl shadow-md transition-colors text-sm whitespace-nowrap"
+        className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl shadow-sm transition-colors text-sm whitespace-nowrap"
       >
         Search
       </button>

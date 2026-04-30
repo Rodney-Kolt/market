@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 import type { Business } from '@/types';
-import { CUISINE_TYPES, PRICE_RANGES, DIETARY_OPTIONS } from '@/lib/utils';
+import { BUSINESS_CATEGORIES, PRICE_RANGES, DIETARY_OPTIONS } from '@/lib/utils';
 import { FiSave } from 'react-icons/fi';
 
 interface BusinessFormProps {
@@ -20,7 +20,8 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
     address: existing?.address || '',
     contact_phone: existing?.contact_phone || '',
     contact_email: existing?.contact_email || '',
-    cuisine_type: existing?.cuisine_type || '',
+    // Use category first, fall back to cuisine_type for existing records
+    category: existing?.category || existing?.cuisine_type || '',
     price_range: existing?.price_range || '',
     dietary_options: existing?.dietary_options || [] as string[],
     logo_url: existing?.logo_url || '',
@@ -57,7 +58,8 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
       address: form.address.trim() || null,
       contact_phone: form.contact_phone.trim() || null,
       contact_email: form.contact_email.trim() || null,
-      cuisine_type: form.cuisine_type || null,
+      category: form.category || null,
+      cuisine_type: form.category || null, // keep in sync for backward compat
       price_range: form.price_range || null,
       dietary_options: form.dietary_options.length > 0 ? form.dietary_options : null,
       logo_url: form.logo_url.trim() || null,
@@ -97,13 +99,23 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
       {/* Name */}
       <div>
         <label className="label">Business Name *</label>
-        <input name="name" value={form.name} onChange={handleChange} className="input" placeholder="e.g. The Golden Fork" required />
+        <input name="name" value={form.name} onChange={handleChange} className="input" placeholder="e.g. Smith Plumbing Co." required />
       </div>
 
       {/* Description */}
       <div>
         <label className="label">Description</label>
         <textarea name="description" value={form.description} onChange={handleChange} rows={3} className="input resize-none" placeholder="Tell customers what makes your business special…" />
+      </div>
+
+      {/* Category */}
+      <div>
+        <label className="label">Business Category</label>
+        <select name="category" value={form.category} onChange={handleChange} className="input">
+          <option value="">Select a category…</option>
+          {BUSINESS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">Can&apos;t find yours? Choose &ldquo;Other&rdquo; and describe it in the description.</p>
       </div>
 
       {/* Address */}
@@ -124,22 +136,13 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
         </div>
       </div>
 
-      {/* Cuisine & Price Range */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="label">Cuisine Type</label>
-          <select name="cuisine_type" value={form.cuisine_type} onChange={handleChange} className="input">
-            <option value="">Select cuisine…</option>
-            {CUISINE_TYPES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Price Range</label>
-          <select name="price_range" value={form.price_range} onChange={handleChange} className="input">
-            <option value="">Select range…</option>
-            {PRICE_RANGES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
+      {/* Price Range */}
+      <div>
+        <label className="label">Price Range</label>
+        <select name="price_range" value={form.price_range} onChange={handleChange} className="input">
+          <option value="">Select range…</option>
+          {PRICE_RANGES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
       </div>
 
       {/* Logo URL */}
@@ -150,7 +153,7 @@ export default function BusinessForm({ userId, existing, onSuccess }: BusinessFo
 
       {/* Dietary options */}
       <div>
-        <label className="label">Dietary Options</label>
+        <label className="label">Dietary / Special Options</label>
         <div className="flex flex-wrap gap-2">
           {DIETARY_OPTIONS.map((opt) => (
             <button

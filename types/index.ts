@@ -24,6 +24,9 @@ export interface Business {
   contact_phone: string | null;
   contact_email: string | null;
   logo_url: string | null;
+  // General category (replaces food-only cuisine_type)
+  category: string | null;
+  // Keep cuisine_type for backward compat but treat as alias
   cuisine_type: string | null;
   price_range: PriceRange | null;
   dietary_options: string[] | null;
@@ -60,6 +63,8 @@ export interface Question {
   asker?: User;
   answers?: Answer[];
   answer_count?: number;
+  // joined business (for dashboard)
+  business?: { id: string; name: string } | null;
 }
 
 export interface Answer {
@@ -84,6 +89,7 @@ export interface Rating {
   created_at: string;
   // joined
   rater?: User;
+  business?: { id: string; name: string } | null;
 }
 
 export interface PriceReport {
@@ -93,6 +99,7 @@ export interface PriceReport {
   reporter_id: string | null;
   reported_price: number;
   location_verified: boolean;
+  service_name: string | null;
   created_at: string;
 }
 
@@ -109,9 +116,27 @@ export function getBadgeTier(ratingCount: number): BadgeTier {
 // Search / filter params
 export interface BusinessFilters {
   query?: string;
+  category?: string;
+  // keep for backward compat
   cuisine_type?: string;
   price_range?: PriceRange;
   dietary_option?: string;
   min_rating?: number;
   sort_by?: 'rating' | 'newest' | 'name';
+}
+
+// Search result types for homepage
+export interface SearchResult {
+  businesses: Business[];
+  answers: AnswerSearchResult[];
+}
+
+export interface AnswerSearchResult {
+  id: string;
+  answer_text: string;
+  question_text: string;
+  business_name: string;
+  business_id: string;
+  answerer_name: string | null;
+  created_at: string;
 }
