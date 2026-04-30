@@ -1,31 +1,79 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+'use client';
+
+// This MUST be a client component — the server-side Supabase client has
+// persistSession:false and no cookie access, so getSession() always returns
+// null on the server, causing an infinite redirect loop to /auth/login.
+// We read auth state from the browser instead.
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import type { User } from '@/types';
 import OwnerDashboard from './OwnerDashboard';
 import CustomerDashboard from './CustomerDashboard';
-import type { Metadata } from 'next';
+import { PageLoader } from '@/components/ui/LoadingSpinner';
 
-export const metadata: Metadata = { title: 'Dashboard' };
+export default function DashboardPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const supabase = createClient();
 
-export default async function DashboardPage() {
-  const supabase = createServerSupabaseClient();
+  useEffect(() => {
+    async function loadUser() {
+      // getUser() hits the Supabase Auth server — more reliable than getSession()
+      const { data: { user: authUser }, error } = await supabase.auth.getUser();
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) redirect('/auth/login');
+      if (error || !authUser) {
+        router.replace('/auth/login');
+        return;
+      }
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
+      // Fetch the profile row from public.users
+      const { data: profile, error: profileError } = await (supabase as any)
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
 
-  if (!user) redirect('/auth/login');
+      if (profileError || !profile) {
+        // Profile row missing — create it then retry
+        await (supabase as any).from('users').upsert({
+          id: authUser.id,
+          email: authUser.email!,
+          full_name: authUser.user_metadata?.full_name || null,
+          avatar_url: authUser.user_metadata?.avatar_url || null,
+          role: authUser.user_metadata?.role || 'customer',
+        });
 
-  const currentUser = user as User;
+        // Re-fetch after upsert
+        const { data: retryProfile } = await (supabase as any)
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
 
-  if (currentUser.role === 'business_owner') {
-    return <OwnerDashboard user={currentUser} />;
+        if (retryProfile) {
+          setUser(retryProfile as User);
+        } else {
+          router.replace('/auth/login');
+        }
+      } else {
+        setUser(profile as User);
+      }
+
+      setLoading(false);
+    }
+
+    loadUser();
+  }, []);
+
+  if (loading) return <PageLoader />;
+  if (!user) return null;
+
+  if (user.role === 'business_owner') {
+    return <OwnerDashboard user={user} />;
   }
 
-  return <CustomerDashboard user={currentUser} />;
+  return <CustomerDashboard user={user} />;
 }

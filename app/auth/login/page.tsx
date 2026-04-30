@@ -1,21 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
-import { MdRestaurant } from 'react-icons/md';
+import { MdStorefront } from 'react-icons/md';
 import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Honor ?returnTo= param (set by FloatingAskButton and AskQuestionForm)
+  const returnTo = searchParams.get('returnTo') || '/dashboard';
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -29,16 +33,17 @@ export default function LoginPage() {
       toast.error(error.message || 'Invalid email or password.');
     } else {
       toast.success('Welcome back!');
-      router.push('/dashboard');
+      router.push(returnTo);
       router.refresh();
     }
   }
 
   async function handleGoogleLogin() {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: `${appUrl}/auth/callback`,
       },
     });
     if (error) toast.error('Google sign-in failed.');
@@ -50,7 +55,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-orange-500">
-            <MdRestaurant className="text-3xl" />
+            <MdStorefront className="text-3xl" />
             <span>Market<span className="text-gray-900">Assistant</span></span>
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-gray-900">Welcome back</h1>
@@ -136,5 +141,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams requires Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

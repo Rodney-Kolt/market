@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
-import { MdRestaurant } from 'react-icons/md';
+import { MdStorefront } from 'react-icons/md';
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import type { UserRole } from '@/types';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +18,10 @@ export default function RegisterPage() {
   const [role, setRole] = useState<UserRole>('customer');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const returnTo = searchParams.get('returnTo') || '/dashboard';
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -29,12 +32,14 @@ export default function RegisterPage() {
 
     setLoading(true);
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName, role },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 
@@ -57,15 +62,16 @@ export default function RegisterPage() {
 
     setLoading(false);
     toast.success('Account created! Check your email to confirm.');
-    router.push('/dashboard');
+    router.push(returnTo);
     router.refresh();
   }
 
   async function handleGoogleRegister() {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        redirectTo: `${appUrl}/auth/callback`,
         queryParams: { role },
       },
     });
@@ -78,11 +84,11 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold text-orange-500">
-            <MdRestaurant className="text-3xl" />
+            <MdStorefront className="text-3xl" />
             <span>Market<span className="text-gray-900">Assistant</span></span>
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-gray-900">Create your account</h1>
-          <p className="text-gray-500 text-sm mt-1">Join the food marketplace community</p>
+          <p className="text-gray-500 text-sm mt-1">Join the community</p>
         </div>
 
         <div className="card p-8">
@@ -199,5 +205,18 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams requires Suspense boundary
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }
