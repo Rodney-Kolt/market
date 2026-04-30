@@ -26,33 +26,56 @@ async function getBusinesses(filters: BusinessFilters): Promise<Business[]> {
   const supabase = createServerSupabaseClient();
   const db = supabase as any;
 
+  // Use neq(false) instead of eq(true) so businesses with is_active=null are included.
+  // New businesses created without explicitly setting is_active default to null in some
+  // Supabase setups, causing eq(true) to silently exclude them.
   let query = db
     .from('businesses')
     .select('*')
-    .eq('is_active', true);
+    .neq('is_active', false);
 
   if (filters.query) {
     query = query.or(
       `name.ilike.%${filters.query}%,description.ilike.%${filters.query}%,category.ilike.%${filters.query}%,cuisine_type.ilike.%${filters.query}%`
     );
   }
-  // Support both category and cuisine_type for backward compat
+
   if (filters.category) {
-    query = query.or(`category.ilike.%${filters.category}%,cuisine_type.ilike.%${filters.category}%`);
+    query = query.or(
+      `category.ilike.%${filters.category}%,cuisine_type.ilike.%${filters.category}%`
+    );
   } else if (filters.cuisine_type) {
-    query = query.or(`category.ilike.%${filters.cuisine_type}%,cuisine_type.ilike.%${filters.cuisine_type}%`);
+    query = query.or(
+      `category.ilike.%${filters.cuisine_type}%,cuisine_type.ilike.%${filters.cuisine_type}%`
+    );
   }
+
   if (filters.price_range)    query = query.eq('price_range', filters.price_range);
   if (filters.dietary_option) query = query.contains('dietary_options', [filters.dietary_option]);
   if (filters.min_rating)     query = query.gte('rating_avg', filters.min_rating);
 
+  // Default sort: newest first so new businesses are visible immediately.
+  // Users can switch to "Top Rated" or "A–Z" via the sort control.
   switch (filters.sort_by) {
-    case 'newest': query = query.order('created_at', { ascending: false }); break;
-    case 'name':   query = query.order('name',       { ascending: true  }); break;
-    default:       query = query.order('rating_avg', { ascending: false }); break;
+    case 'rating':
+      query = query.order('rating_avg', { ascending: false });
+      break;
+    case 'name':
+      query = query.order('name', { ascending: true });
+      break;
+    case 'newest':
+    default:
+      query = query.order('created_at', { ascending: false });
+      break;
   }
 
-  const { data } = await query.limit(50);
+  const { data, error } = await query.limit(50);
+
+  if (error) {
+    console.error('getBusinesses error:', error);
+    return [];
+  }
+
   return (data as Business[]) || [];
 }
 
@@ -69,7 +92,10 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
 
   const businesses = await getBusinesses(filters);
   const view = (searchParams.view as 'grid' | 'list') || 'grid';
-  const hasFilters = Object.values(filters).some(Boolean);
+  const hasFilters = !!(
+    filters.query || filters.category || filters.cuisine_type ||
+    filters.price_range || filters.dietary_option || filters.min_rating
+  );
   const activeQuery = filters.query || filters.category || filters.cuisine_type;
 
   return (
@@ -98,7 +124,6 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
 
         {/* Results */}
         <div className="flex-1 min-w-0">
-          {/* Toolbar */}
           <div className="flex items-center justify-between mb-4">
             <ViewToggle view={view} searchParams={searchParams} />
             <SortSelect current={filters.sort_by} />

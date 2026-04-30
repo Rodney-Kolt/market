@@ -4,11 +4,12 @@ import HomepageClient from './HomepageClient';
 
 async function getTopBusinesses(): Promise<Business[]> {
   const supabase = createServerSupabaseClient();
+  // Use neq(false) so businesses with is_active=null (newly created) are included
   const { data } = await (supabase as any)
     .from('businesses')
     .select('*')
-    .eq('is_active', true)
-    .order('rating_avg', { ascending: false })
+    .neq('is_active', false)
+    .order('created_at', { ascending: false })
     .limit(6);
   return (data as Business[]) || [];
 }

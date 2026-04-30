@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -17,13 +17,14 @@ import ReportPriceForm from '@/components/forms/ReportPriceForm';
 import { FiMapPin, FiPhone, FiMail, FiMessageCircle, FiStar, FiPlus } from 'react-icons/fi';
 import { MdStorefront } from 'react-icons/md';
 
+// currentUser and userRating are no longer passed from the server —
+// the server client can't read cookies so session is always null there.
+// We load them client-side after mount instead.
 interface Props {
   business: Business;
   menuItems: MenuItem[];
   questions: Question[];
   ratings: Rating[];
-  currentUser: User | null;
-  userRating: Rating | null;
 }
 
 type ActiveModal = 'ask' | 'rate' | 'report_price' | null;
@@ -33,13 +34,61 @@ export default function BusinessProfileClient({
   menuItems,
   questions,
   ratings,
-  currentUser,
-  userRating,
 }: Props) {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userRating, setUserRating] = useState<Rating | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [activeTab, setActiveTab] = useState<'menu' | 'qa' | 'reviews'>('menu');
   const supabase = createClient();
+
+  // Load current user from browser session after mount
+  useEffect(() => {
+    async function loadUser() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setAuthLoading(false);
+        return;
+      }
+
+      const db = supabase as any;
+
+      // Fetch profile
+      const { data: profile } = await db
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profile) setCurrentUser(profile as User);
+
+      // Check if user already rated this business
+      const { data: existingRating } = await db
+        .from('ratings')
+        .select('*')
+        .eq('business_id', business.id)
+        .eq('rater_id', authUser.id)
+        .maybeSingle();
+
+      if (existingRating) setUserRating(existingRating as Rating);
+
+      setAuthLoading(false);
+    }
+
+    loadUser();
+
+    // Also listen for auth state changes (e.g. sign-in in another tab)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setCurrentUser(null);
+        setUserRating(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [business.id]);
 
   // Group menu items by category
   const menuByCategory = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -51,7 +100,6 @@ export default function BusinessProfileClient({
 
   const availableToday = menuItems.filter((m) => m.is_available_today);
 
-  // Top 3 most-answered questions (regulars ask)
   const topQuestions = [...questions]
     .sort((a, b) => (b.answers?.length || 0) - (a.answers?.length || 0))
     .slice(0, 3);
@@ -83,12 +131,33 @@ export default function BusinessProfileClient({
     { id: 'reviews' as const, label: `⭐ Reviews (${ratings.length})` },
   ];
 
+  // While we're checking auth, show a neutral action area (no flash of "Sign in")
+  const actionButtons = authLoading ? (
+    <div className="h-10 w-48 bg-gray-100 rounded-xl animate-pulse" />
+  ) : currentUser && !isOwner ? (
+    <>
+      <button onClick={() => setActiveModal('ask')} className="btn-primary">
+        <FiMessageCircle /> Ask a Question
+      </button>
+      <button onClick={() => setActiveModal('rate')} className="btn-secondary">
+        <FiStar /> {userRating ? 'Update Rating' : 'Rate Business'}
+      </button>
+    </>
+  ) : isOwner ? (
+    <Link href="/dashboard" className="btn-secondary">
+      Manage Business
+    </Link>
+  ) : (
+    <Link href={`/auth/login?returnTo=/businesses/${business.id}`} className="btn-primary">
+      Sign in to interact
+    </Link>
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* ── Business Header ── */}
       <div className="card overflow-hidden mb-6">
-        {/* Cover */}
         <div className="h-40 bg-gradient-to-br from-orange-100 to-amber-100 relative flex items-center justify-center">
           {business.logo_url ? (
             <Image src={business.logo_url} alt={business.name} fill className="object-cover" />
@@ -119,7 +188,6 @@ export default function BusinessProfileClient({
                 <p className="text-gray-600 mt-3 leading-relaxed">{business.description}</p>
               )}
 
-              {/* Contact info */}
               <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-500">
                 {business.address && (
                   <span className="flex items-center gap-1.5">
@@ -138,7 +206,6 @@ export default function BusinessProfileClient({
                 )}
               </div>
 
-              {/* Dietary options */}
               {business.dietary_options && business.dietary_options.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {business.dietary_options.map((opt) => (
@@ -148,7 +215,6 @@ export default function BusinessProfileClient({
               )}
             </div>
 
-            {/* Transparency score */}
             <div className="flex flex-col items-center bg-gray-50 rounded-2xl p-4 min-w-[120px]">
               <div className="text-3xl font-extrabold text-gray-900">{business.transparency_score}</div>
               <div className="text-xs text-gray-500 mt-0.5 text-center">Transparency Score</div>
@@ -156,33 +222,14 @@ export default function BusinessProfileClient({
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — rendered after auth check to avoid flash */}
           <div className="flex flex-wrap gap-3 mt-5 pt-5 border-t border-gray-100">
-            {currentUser && !isOwner && (
-              <>
-                <button onClick={() => setActiveModal('ask')} className="btn-primary">
-                  <FiMessageCircle /> Ask a Question
-                </button>
-                <button onClick={() => setActiveModal('rate')} className="btn-secondary">
-                  <FiStar /> {userRating ? 'Update Rating' : 'Rate Business'}
-                </button>
-              </>
-            )}
-            {!currentUser && (
-              <Link href="/auth/login" className="btn-primary">
-                Sign in to interact
-              </Link>
-            )}
-            {isOwner && (
-              <Link href="/dashboard" className="btn-secondary">
-                Manage Business
-              </Link>
-            )}
+            {actionButtons}
           </div>
         </div>
       </div>
 
-      {/* ── Available Today Snapshot ── */}
+      {/* ── Available Today ── */}
       {availableToday.length > 0 && (
         <div className="card p-5 mb-6 border-l-4 border-green-400">
           <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -278,7 +325,6 @@ export default function BusinessProfileClient({
       {/* ── Q&A Tab ── */}
       {activeTab === 'qa' && (
         <div className="space-y-4">
-          {/* Show ask button for all users — AskQuestionForm handles redirect if not logged in */}
           {!isOwner && (
             <button
               onClick={() => setActiveModal('ask')}
@@ -303,7 +349,7 @@ export default function BusinessProfileClient({
       {/* ── Reviews Tab ── */}
       {activeTab === 'reviews' && (
         <div className="space-y-4">
-          {currentUser && !isOwner && (
+          {!authLoading && currentUser && !isOwner && (
             <button
               onClick={() => setActiveModal('rate')}
               className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-amber-200 rounded-2xl text-amber-600 hover:bg-amber-50 transition-colors font-medium"

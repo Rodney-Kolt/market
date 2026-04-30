@@ -31,56 +31,75 @@ export default function HomepageClient({ topBusinesses }: Props) {
 
   async function handleSearch(searchQuery: string) {
     const q = searchQuery.trim();
-    if (!q) return;
     setQuery(q);
     setLoading(true);
 
     const db = supabase as any;
 
-    // Search businesses by name, description, category, cuisine_type
-    const { data: bizData } = await db
+    // Build business query — if blank, return all businesses sorted by newest
+    let bizQuery = db
       .from('businesses')
       .select('*')
-      .eq('is_active', true)
-      .or(
-        `name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%,cuisine_type.ilike.%${q}%`
-      )
-      .order('rating_avg', { ascending: false })
+      .neq('is_active', false)
+      .order('created_at', { ascending: false })
       .limit(12);
 
-    // Search answers that match the query
-    const { data: answerData } = await db
-      .from('answers')
-      .select(`
-        id,
-        answer_text,
-        created_at,
-        answerer:users(full_name),
-        question:questions(
-          question_text,
-          business:businesses(id, name)
+    if (q) {
+      bizQuery = db
+        .from('businesses')
+        .select('*')
+        .neq('is_active', false)
+        .or(
+          `name.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%,cuisine_type.ilike.%${q}%`
         )
-      `)
-      .ilike('answer_text', `%${q}%`)
-      .order('upvotes', { ascending: false })
-      .limit(6);
+        .order('rating_avg', { ascending: false })
+        .limit(12);
+    }
 
-    // Also search questions text
-    const { data: questionData } = await db
-      .from('questions')
-      .select(`
-        id,
-        question_text,
-        created_at,
-        business:businesses(id, name),
-        answers(
-          id,
-          answer_text,
-          answerer:users(full_name)
-        )
-      `)
-      .ilike('question_text', `%${q}%`)
-      .limit(6);
+    const { data: bizData } = await bizQuery;
+
+    // Search answers and questions only when there's a real query
+    let answerData: any[] = [];
+    let questionData: any[] = [];
+
+    if (q) {
+      const [answersRes, questionsRes] = await Promise.all([
+        db
+          .from('answers')
+          .select(`
+            id,
+            answer_text,
+            created_at,
+            answerer:users(full_name),
+            question:questions(
+              question_text,
+              business:businesses(id, name)
+            )
+          `)
+          .ilike('answer_text', `%${q}%`)
+          .order('upvotes', { ascending: false })
+          .limit(6),
+
+        db
+          .from('questions')
+          .select(`
+            id,
+            question_text,
+            created_at,
+            business:businesses(id, name),
+            answers(
+              id,
+              answer_text,
+              answerer:users(full_name)
+            )
+          `)
+          .ilike('question_text', `%${q}%`)
+          .limit(6),
+      ]);
+
+      answerData = answersRes.data || [];
+      questionData = questionsRes.data || [];
+    }
 
     // Merge and deduplicate answers
     const answerResults: AnswerSearchResult[] = [];
